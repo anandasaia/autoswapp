@@ -12,3 +12,7 @@ PairProxy = ["contracts/PairProxy.cairo"]
 Pair = ["contracts/Pair.cairo"]
 Multicall = ["contracts/utils/Multicall.cairo"]
 
+dai = ["contracts/dai.cairo"]
+usdt = ["contracts/usdt.cairo"]
+
+

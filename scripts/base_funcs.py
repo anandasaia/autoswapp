@@ -68,17 +68,22 @@ async def create_or_get_pair(current_client, factory, token0, token1, deployer, 
 async def add_liquidity_to_pair(current_client, factory, router, token0, token1, amount0, amount1, deployer, max_fee):
 
     result = await token0.functions["decimals"].call()
-    amount0 = int(amount0 * (10 ** result.decimals))
+    amount0 = int(amount0 * (10 ** result.res))
     result = await token1.functions["decimals"].call()
-    amount1 = int(amount1 * (10 ** result.decimals))
+    amount1 = int(amount1 * (10 ** result.res))
 
     # Approve
     token0_with_account = await Contract.from_address(token0.address, deployer)
     invocation = await token0_with_account.functions["approve"].invoke(router.address, amount0, max_fee=max_fee)
     await invocation.wait_for_acceptance()
+    #invocation = await token0_with_account.functions["mint"].invoke(deployer.address, amount0, max_fee=max_fee)
+    #await invocation.wait_for_acceptance()
+    
     token1_with_account = await Contract.from_address(token1.address, deployer)
     invocation = await token1_with_account.functions["approve"].invoke(router.address, amount1, max_fee=max_fee)
     await invocation.wait_for_acceptance()
+    #invocation = await token1_with_account.functions["mint"].invoke(deployer.address, amount1, max_fee=max_fee)
+    #await invocation.wait_for_acceptance()
 
     ## Add liquidity
     print("Adding Liquidity")
@@ -97,15 +102,70 @@ async def add_liquidity_to_pair(current_client, factory, router, token0, token1,
 async def swap_token0_to_token1(current_client, factory, router, token0, token1, amount0, deployer, max_fee):
 
     result = await token0.functions["decimals"].call()
-    amount0 = int(amount0 * (10 ** result.decimals))
+    amount0 = int(amount0 * (10 ** result.res))
+    
+    #invocation = await token0.functions["mint"].invoke(deployer.address, amount0)
+    #await invocation.wait_for_acceptance()
 
-    result = await token0.functions["balanceOf"].call(deployer.address)
-    print(f"Balance token0: {result.balance}")
-    result = await token1.functions["balanceOf"].call(deployer.address)
-    print(f"Balance token1: {result.balance}")
-
+  
     # Approve
     token0_with_account = await Contract.from_address(token0.address, deployer)
+    invocation = await token0_with_account.functions["approve"].invoke(router.address, amount0, max_fee=max_fee)
+    await invocation.wait_for_acceptance()
+    
+    #invocation = await token0_with_account.functions["mint"].invoke(deployer.address, amount0, max_fee=max_fee)
+    #await invocation.wait_for_acceptance()
+
+
+    result = await token0.functions["balanceOf"].call(deployer.address)
+    print(f"Balance token0: {result.res}")
+    result = await token1.functions["balanceOf"].call(deployer.address)
+    print(f"Balance token1: {result.res}")
+
+    ## Swap
+    print("Swapping")
+    deadline = int(time.time()) + 3000
+    router_with_account = Contract(address=router.address, abi=json.loads(Path("build/Router_abi.json").read_text()), client=deployer)
+    estimated_fee = await router_with_account.functions["swap_exact_tokens_for_tokens"].prepare(amount0, 0, [token0.address, token1.address], deployer.address, deadline).estimate_fee()
+    print(f"Estimated fee: {estimated_fee}")
+    invocation = await router_with_account.functions["swap_exact_tokens_for_tokens"].invoke(amount0, 0, [token0.address, token1.address], deployer.address, deadline, max_fee=max_fee)
+    await invocation.wait_for_acceptance()
+    # await print_transaction_execution_details(current_client, invocation.hash)
+    result = await factory.functions["get_pair"].call(token0.address, token1.address)
+    pair = Contract(address=result.pair, abi=json.loads(Path("build/Pair_abi.json").read_text()), client=current_client)
+    result = await pair.functions["get_reserves"].call()
+    print(result._asdict())
+
+    result = await token0.functions["balanceOf"].call(deployer.address)
+    print(f"Balance token0: {result.res}")
+    result = await token1.functions["balanceOf"].call(deployer.address)
+    print(f"Balance token1: {result.res}")
+
+async def swap_50PER_token0_to_token1(current_client, factory, router, token0, token1, deployer, max_fee):
+
+    #result = await token0.functions["decimals"].call()
+    #amount0 = int(amount0 * (10 ** result.res))
+    
+    #invocation = await token0.functions["mint"].invoke(deployer.address, amount0)
+    #await invocation.wait_for_acceptance()
+
+  
+
+    
+    #invocation = await token0_with_account.functions["mint"].invoke(deployer.address, amount0, max_fee=max_fee)
+    #await invocation.wait_for_acceptance()
+
+
+    result = await token0.functions["balanceOf"].call(deployer.address)
+    print(f"Balance token0: {result.res}")
+    amount0 = int(int(result.res) * 0.5)
+    result = await token1.functions["balanceOf"].call(deployer.address)
+    print(f"Balance token1: {result[0]}")
+    
+    # Approve
+    token0_with_account = await Contract.from_address(token0.address, deployer)
+    print(amount0)
+    print(router.address)
     invocation = await token0_with_account.functions["approve"].invoke(router.address, amount0, max_fee=max_fee)
     await invocation.wait_for_acceptance()
 
@@ -124,6 +184,6 @@ async def swap_token0_to_token1(current_client, factory, router, token0, token1,
     print(result._asdict())
 
     result = await token0.functions["balanceOf"].call(deployer.address)
-    print(f"Balance token0: {result.balance}")
+    print(f"Balance token0: {result.res}")
     result = await token1.functions["balanceOf"].call(deployer.address)
-    print(f"Balance token1: {result.balance}")
+    print(f"Balance token1: {result[0]}")
